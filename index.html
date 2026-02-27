@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sound Memory Match</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+
+        :root {
+            --bg-color: #0f172a;
+            --text-color: #f8fafc;
+            --tile-bg: rgba(30, 41, 59, 0.7);
+            --tile-hover: rgba(51, 65, 85, 0.9);
+            --tile-active: #3b82f6;
+            --tile-matched: #10b981;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        header {
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stats {
+            display: flex;
+            gap: 2rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            width: 100%;
+            max-width: 400px;
+            perspective: 1000px;
+        }
+
+        .tile {
+            aspect-ratio: 1;
+            background: var(--tile-bg);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tile:hover {
+            background: var(--tile-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+
+        .tile.active {
+            background: var(--tile-active);
+            border-color: #60a5fa;
+            transform: scale(0.95);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .tile.matched {
+            background: var(--tile-matched);
+            border-color: #34d399;
+            cursor: default;
+            transform: scale(0.9);
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .tile svg {
+            width: 40%;
+            height: 40%;
+            fill: currentColor;
+            opacity: 0.3;
+            transition: all 0.3s ease;
+        }
+
+        .tile:hover svg {
+            opacity: 0.8;
+        }
+
+        .tile.active svg,
+        .tile.matched svg {
+            opacity: 1;
+            color: white;
+            animation: pulse 1s infinite;
+        }
+
+        .tile.matched svg {
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.2);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(0);
+            animation: ripple-anim 0.6s linear;
+            pointer-events: none;
+        }
+
+        @keyframes ripple-anim {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 100;
+        }
+
+        .modal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: var(--tile-bg);
+            padding: 3rem;
+            border-radius: 1.5rem;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: translateY(20px);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal.show .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #34d399;
+        }
+
+        .modal p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            color: #94a3b8;
+        }
+
+        /* SVG definitions */
+        .svg-icon {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Hidden SVG Definitions to use multiple times -->
+    <svg class="svg-icon">
+        <symbol id="icon-note" viewBox="0 0 24 24">
+            <path
+                d="M9 18c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3v-7.26c1.05.41 2.22.65 3.45.65 4.6 1.41 4.54-5.35 4.54-5.35V2h-8v11.41c-.6-.26-1.26-.41-1.99-.41z" />
+        </symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24">
+            <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
+        </symbol>
+    </svg>
+
+    <div class="container">
+        <header>
+            <h1>Sound Match</h1>
+            <div class="stats">
+                <span>Moves: <span id="moves-count">0</span></span>
+                <span>Matches: <span id="matches-count">0</span> / 8</span>
+            </div>
+        </header>
+
+        <div class="grid" id="grid">
+            <!-- Tiles generated by JS -->
+        </div>
+
+        <div class="controls">
+            <button id="restart-btn">Restart Game</button>
+        </div>
+    </div>
+
+    <div class="modal" id="win-modal">
+        <div class="modal-content">
+            <h2>You Win! 🎉</h2>
+            <p>Completed in <span id="final-moves">0</span> moves.</p>
+            <button id="play-again-btn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Web Audio API context
+        let audioCtx;
+
+        // Game State
+        let tiles = [];
+        let firstSelection = null;
+        let secondSelection = null;
+        let isLocked = false;
+        let moves = 0;
+        let matches = 0;
+
+        const gridElement = document.getElementById('grid');
+        const movesElement = document.getElementById('moves-count');
+        const matchesElement = document.getElementById('matches-count');
+        const winModal = document.getElementById('win-modal');
+        const finalMovesElement = document.getElementById('final-moves');
+
+        // Initialize AudioContext on first user interaction to comply with browser autoplay policies
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Generate distinct sounds based on id (0 to 7)
+        function playSound(id) {
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            // Define 8 distinct sounds
+            switch (id) {
+                case 0: // C4 Tone
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(261.63, now);
+                    setupEnvelope(gain, now, 0.5);
+                    break;
+                case 1: // E4 Tone
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(329.63, now);
+                    setupEnvelope(gain, now, 0.5);
+                    break;
+                case 2: // G4 Tone
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(392.00, now);
+                    setupEnvelope(gain, now, 0.5);
+                    break;
+                case 3: // C5 Tone
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    setupEnvelope(gain, now, 0.5);
+                    break;
+                case 4: // Pluck / Short Square
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(261.63, now);
+                    setupShortEnvelope(gain, now);
+                    break;
+                case 5: // Sawtooth
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(329.63, now);
+                    setupEnvelope(gain, now, 0.3);
+                    break;
+                case 6: // Slide Up
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.3);
+                    setupEnvelope(gain, now, 0.5);
+                    break;
+                case 7: // Slide Down
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(300, now + 0.3);
+                    setupEnvelope(gain, now, 0.5);
+                    break;
+            }
+
+            osc.start(now);
+            osc.stop(now + 0.6);
+        }
+
+        // Helper envelopes
+        function setupEnvelope(gainNode, startTime, maxVol = 0.5) {
+            gainNode.gain.setValueAtTime(0, startTime);
+            gainNode.gain.linearRampToValueAtTime(maxVol, startTime + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.4);
+        }
+
+        function setupShortEnvelope(gainNode, startTime) {
+            gainNode.gain.setValueAtTime(0, startTime);
+            gainNode.gain.linearRampToValueAtTime(0.4, startTime + 0.02);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+        }
+
+        // Play success sound
+        function playSuccessSound() {
+            initAudio();
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc1.connect(gain);
+            osc2.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            osc1.type = 'sine';
+            osc2.type = 'sine';
+
+            // Major third chord
+            osc1.frequency.setValueAtTime(523.25, now); // C5
+            osc2.frequency.setValueAtTime(659.25, now); // E5
+
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.3, now + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+            osc1.start(now); osc2.start(now);
+            osc1.stop(now + 0.6); osc2.stop(now + 0.6);
+        }
+
+        function createRipple(event, element) {
+            const circle = document.createElement("span");
+            const diameter = Math.max(element.clientWidth, element.clientHeight);
+            const radius = diameter / 2;
+
+            const rect = element.getBoundingClientRect();
+            circle.style.width = circle.style.height = `${diameter}px`;
+            circle.style.left = `${event.clientX - rect.left - radius}px`;
+            circle.style.top = `${event.clientY - rect.top - radius}px`;
+            circle.classList.add("ripple");
+
+            const ripple = element.querySelector(".ripple");
+            if (ripple) {
+                ripple.remove();
+            }
+
+            element.appendChild(circle);
+        }
+
+        function initGame() {
+            gridElement.innerHTML = '';
+            winModal.classList.remove('show');
+            moves = 0;
+            matches = 0;
+            firstSelection = null;
+            secondSelection = null;
+            isLocked = false;
+            updateStats();
+
+            // Create array of 16 sound IDs (0 to 7, twice)
+            tiles = [...Array(8).keys(), ...Array(8).keys()];
+
+            // Shuffle
+            for (let i = tiles.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+            }
+
+            // Create DOM elements
+            tiles.forEach((soundId, index) => {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                tile.dataset.index = index;
+                tile.dataset.sound = soundId;
+
+                // Add music note icon
+                tile.innerHTML = `<svg><use href="#icon-note"></use></svg>`;
+
+                tile.addEventListener('click', (e) => onTileClick(e, tile));
+                gridElement.appendChild(tile);
+            });
+        }
+
+        function onTileClick(event, tile) {
+            if (isLocked || tile.classList.contains('matched') || tile === firstSelection) {
+                return;
+            }
+
+            createRipple(event, tile);
+
+            const soundId = parseInt(tile.dataset.sound);
+            playSound(soundId);
+
+            tile.classList.add('active');
+
+            if (!firstSelection) {
+                firstSelection = tile;
+            } else {
+                secondSelection = tile;
+                isLocked = true;
+                moves++;
+                updateStats();
+
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            const isMatch = firstSelection.dataset.sound === secondSelection.dataset.sound;
+
+            if (isMatch) {
+                setTimeout(() => {
+                    playSuccessSound();
+                    firstSelection.classList.remove('active');
+                    secondSelection.classList.remove('active');
+                    firstSelection.classList.add('matched');
+                    secondSelection.classList.add('matched');
+
+                    // Change icon to checkmark
+                    firstSelection.innerHTML = `<svg><use href="#icon-check"></use></svg>`;
+                    secondSelection.innerHTML = `<svg><use href="#icon-check"></use></svg>`;
+
+                    matches++;
+                    updateStats();
+                    resetSelection();
+
+                    if (matches === 8) {
+                        setTimeout(showWinModal, 500);
+                    }
+                }, 500); // Wait a bit before marking as matched visually
+            } else {
+                setTimeout(() => {
+                    firstSelection.classList.remove('active');
+                    secondSelection.classList.remove('active');
+                    resetSelection();
+                }, 1000); // 1 second delay to "memorize" the sound
+            }
+        }
+
+        function resetSelection() {
+            firstSelection = null;
+            secondSelection = null;
+            isLocked = false;
+        }
+
+        function updateStats() {
+            movesElement.textContent = moves;
+            matchesElement.textContent = matches;
+        }
+
+        function showWinModal() {
+            finalMovesElement.textContent = moves;
+            winModal.classList.add('show');
+        }
+
+        document.getElementById('restart-btn').addEventListener('click', initGame);
+        document.getElementById('play-again-btn').addEventListener('click', initGame);
+
+        // Required to un-suspend audio context on some browsers when any part of page is clicked
+        document.body.addEventListener('click', initAudio, { once: true });
+
+        // Start game
+        initGame();
+    </script>
+</body>
+
+</html>
